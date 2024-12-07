@@ -49,5 +49,8 @@ def main():
     # ANOVA 테스트 실행
     analyzer.perform_anova_test(processed_data)
 
+    # 통합 에러율 그래프 생성
+    analyzer.create_combined_error_rate_plot(processed_data)
+
 if __name__ == "__main__":
     main()
