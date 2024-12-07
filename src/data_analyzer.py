@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy import stats
 
 class DataAnalyzer:
     def __init__(self, data):
@@ -70,3 +71,59 @@ class DataAnalyzer:
                 })
         
         return level_performance, optimal_combinations
+    
+    def perform_lilliefors_test(self, data):
+        """
+        각 게임 조합별로 정규성 검정 수행 (Kolmogorov-Smirnov test)
+        """
+        print("\nLilliefors Test Results:")
+        print("=" * 60)
+        print(f"{'Combination':<20} {'Statistic':<10} {'p-value':<10} {'Normal?':<10}")
+        print("-" * 60)
+        
+        for combination in sorted(data['combination'].unique()):
+            subset = data[data['combination'] == combination]['error_rate']
+            if len(subset) > 3:  # 데이터가 충분한 경우에만 검정
+                # 데이터를 표준화
+                z_scores = (subset - np.mean(subset)) / np.std(subset)
+                # Kolmogorov-Smirnov test with normal distribution
+                statistic, p_value = stats.kstest(z_scores, 'norm')
+                is_normal = "Yes" if p_value > 0.05 else "No"
+                print(f"{combination:<20} {statistic:.4f}    {p_value:.4f}    {is_normal}")
+        
+        print("=" * 60)
+        print("Note: p-value > 0.05 indicates normal distribution")
+    
+    def analyze_level_performance(self):
+        if self.user_levels is None:
+            raise ValueError("User levels not loaded. Please call load_user_levels() first.")
+        
+        # 데이터 병합 및 처리
+        user_levels_slim = self.user_levels[['id', 'level']]
+        merged_data = pd.merge(
+            self.data,
+            user_levels_slim,
+            left_on='member_id',
+            right_on='id',
+            how='left'
+        )
+        
+        # 레벨별, 게임 조합별 평균 error rate 계산
+        level_performance = merged_data.groupby(['level', 'combination'])['error_rate'].agg(['mean', 'std']).reset_index()
+        
+        # 최적 난이도 찾기 (error rate 30-50% 기준)
+        optimal_combinations = []
+        for level in sorted(level_performance['level'].unique()):
+            level_data = level_performance[level_performance['level'] == level]
+            optimal = level_data[
+                (level_data['mean'] >= 30) & 
+                (level_data['mean'] <= 50)
+            ]
+            if not optimal.empty:
+                optimal_combinations.append({
+                    'level': level,
+                    'optimal_combinations': optimal['combination'].tolist(),
+                    'error_rates': optimal['mean'].tolist()
+                })
+        
+        return level_performance, optimal_combinations, None

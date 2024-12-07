@@ -27,8 +27,12 @@ def main():
     # 에러율 계산
     error_rates = analyzer.calculate_error_rates()
     
+    # Lilliefors 테스트 수행
+    print("\nPerforming Lilliefors test for normality...")
+    analyzer.perform_lilliefors_test(processed_data)
+    
     # 레벨 기반 분석
-    level_performance, optimal_combinations = analyzer.analyze_level_performance()
+    level_performance, optimal_combinations, _ = analyzer.analyze_level_performance()
     
     # 시각화
     visualizer = Visualizer(processed_data, error_rates)
