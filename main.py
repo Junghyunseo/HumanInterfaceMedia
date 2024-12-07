@@ -28,8 +28,8 @@ def main():
     error_rates = analyzer.calculate_error_rates()
     
     # Lilliefors 테스트 수행
-    print("\nPerforming Lilliefors test for normality...")
-    analyzer.perform_lilliefors_test(processed_data)
+    print("\nPerforming comprehensive normality tests...")
+    analyzer.perform_comprehensive_normality_test(processed_data)
     
     # 레벨 기반 분석
     level_performance, optimal_combinations, _ = analyzer.analyze_level_performance()

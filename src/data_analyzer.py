@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+import matplotlib.pyplot as plt
 
 class DataAnalyzer:
     def __init__(self, data):
@@ -72,28 +73,136 @@ class DataAnalyzer:
         
         return level_performance, optimal_combinations
     
-    def perform_lilliefors_test(self, data):
+    def perform_comprehensive_normality_test(self, data):
         """
-        각 게임 조합별로 정규성 검정 수행 (Kolmogorov-Smirnov test)
+        네 가지 수준에서 정규성 검정 수행
+        1. 개별 조합별 (12개)
+        2. 보드 크기별 (3개)
+        3. 게임 종류별 (4개)
+        4. 전체 통합
         """
-        print("\nLilliefors Test Results:")
+        # 1. 개별 조합 분석
+        print("\n1. Lilliefors Test Results for Each Combination:")
         print("=" * 60)
         print(f"{'Combination':<20} {'Statistic':<10} {'p-value':<10} {'Normal?':<10}")
         print("-" * 60)
         
         for combination in sorted(data['combination'].unique()):
             subset = data[data['combination'] == combination]['error_rate']
-            if len(subset) > 3:  # 데이터가 충분한 경우에만 검정
-                # 데이터를 표준화
+            if len(subset) > 3:
                 z_scores = (subset - np.mean(subset)) / np.std(subset)
-                # Kolmogorov-Smirnov test with normal distribution
                 statistic, p_value = stats.kstest(z_scores, 'norm')
                 is_normal = "Yes" if p_value > 0.05 else "No"
                 print(f"{combination:<20} {statistic:.4f}    {p_value:.4f}    {is_normal}")
-        
         print("=" * 60)
-        print("Note: p-value > 0.05 indicates normal distribution")
-    
+
+        # 2. 보드 크기별 분석
+        print("\n2. Lilliefors Test Results by Board Size:")
+        print("=" * 60)
+        print(f"{'Board Size':<20} {'Statistic':<10} {'p-value':<10} {'Normal?':<10}")
+        print("-" * 60)
+        
+        for size in ['3x3', '4x4', '5x5']:
+            size_data = data[data['combination'].str.startswith(size)]['error_rate']
+            if len(size_data) > 3:
+                z_scores = (size_data - np.mean(size_data)) / np.std(size_data)
+                statistic, p_value = stats.kstest(z_scores, 'norm')
+                is_normal = "Yes" if p_value > 0.05 else "No"
+                print(f"{size:<20} {statistic:.4f}    {p_value:.4f}    {is_normal}")
+        print("=" * 60)
+
+        # 3. 게임 종류별 분석
+        print("\n3. Lilliefors Test Results by Game Type:")
+        print("=" * 60)
+        print(f"{'Game Type':<20} {'Statistic':<10} {'p-value':<10} {'Normal?':<10}")
+        print("-" * 60)
+        
+        for game_type in ['NUMBER', 'ALPHABET', 'SHAPE', 'ARABIC']:
+            type_data = data[data['card_type'] == game_type]['error_rate']
+            if len(type_data) > 3:
+                z_scores = (type_data - np.mean(type_data)) / np.std(type_data)
+                statistic, p_value = stats.kstest(z_scores, 'norm')
+                is_normal = "Yes" if p_value > 0.05 else "No"
+                print(f"{game_type:<20} {statistic:.4f}    {p_value:.4f}    {is_normal}")
+        print("=" * 60)
+
+        # 4. 전체 통합 분석
+        print("\n4. Lilliefors Test Result for Overall Distribution:")
+        print("=" * 60)
+        print(f"{'Analysis Type':<20} {'Statistic':<10} {'p-value':<10} {'Normal?':<10}")
+        print("-" * 60)
+        
+        all_data = data['error_rate']
+        z_scores = (all_data - np.mean(all_data)) / np.std(all_data)
+        statistic, p_value = stats.kstest(z_scores, 'norm')
+        is_normal = "Yes" if p_value > 0.05 else "No"
+        print(f"{'Overall':<20} {statistic:.4f}    {p_value:.4f}    {is_normal}")
+        print("=" * 60)
+        print("\nNote: p-value > 0.05 indicates normal distribution")
+
+        # QQ plots for all four analyses
+        plt.figure(figsize=(15, 10))
+
+        # 1. Overall QQ Plot
+        plt.subplot(2, 2, 1)
+        stats.probplot(all_data, dist="norm", plot=plt)
+        plt.title("Q-Q Plot: Overall")
+
+        # 2. Board Size QQ Plots
+        plt.subplot(2, 2, 2)
+        size_colors = {'3x3': 'red', '4x4': 'blue', '5x5': 'green'}
+        for size, color in size_colors.items():
+            size_data = data[data['combination'].str.startswith(size)]['error_rate']
+            # 이론적 분위수와 샘플 분위수 계산
+            probplot_output = stats.probplot(size_data, dist="norm", fit=False)
+            theoretical_quantiles = probplot_output[0]
+            sample_quantiles = probplot_output[1]
+            plt.plot(theoretical_quantiles, sample_quantiles, 
+                    marker='o', color=color, linestyle='', label=size)
+        plt.title("Q-Q Plot: Board Sizes")
+        plt.xlabel("Theoretical Quantiles")
+        plt.ylabel("Sample Quantiles")
+        plt.legend()
+
+        # 3. Game Type QQ Plots
+        plt.subplot(2, 2, 3)
+        type_colors = {
+            'NUMBER': 'blue',
+            'ALPHABET': 'red',
+            'SHAPE': 'green',
+            'ARABIC': 'purple'
+        }
+        type_markers = {
+            'NUMBER': 'o',
+            'ALPHABET': 's',
+            'SHAPE': '^',
+            'ARABIC': 'D'
+        }
+        for game_type in type_colors.keys():
+            type_data = data[data['card_type'] == game_type]['error_rate']
+            # 이론적 분위수와 샘플 분위수 계산
+            probplot_output = stats.probplot(type_data, dist="norm", fit=False)
+            theoretical_quantiles = probplot_output[0]
+            sample_quantiles = probplot_output[1]
+            plt.plot(theoretical_quantiles, sample_quantiles,
+                    marker=type_markers[game_type], 
+                    color=type_colors[game_type], 
+                    linestyle='', 
+                    label=game_type)
+        plt.title("Q-Q Plot: Game Types")
+        plt.xlabel("Theoretical Quantiles")
+        plt.ylabel("Sample Quantiles")
+        plt.legend()
+
+        # 4. Individual Combinations (showing trend)
+        plt.subplot(2, 2, 4)
+        comb_means = data.groupby('combination')['error_rate'].mean()
+        stats.probplot(comb_means, dist="norm", plot=plt)
+        plt.title("Q-Q Plot: Combination Means")
+
+        plt.tight_layout()
+        plt.show()
+
     def analyze_level_performance(self):
         if self.user_levels is None:
             raise ValueError("User levels not loaded. Please call load_user_levels() first.")
