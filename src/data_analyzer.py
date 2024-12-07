@@ -5,6 +5,17 @@ class DataAnalyzer:
     def __init__(self, data):
         self.data = data
         self.error_rates = None
+        self.user_levels = None
+
+    def load_user_levels(self, file_path):
+        """사용자 레벨 데이터 로드"""
+        try:
+            self.user_levels = pd.read_excel(file_path)
+            print("User levels loaded successfully!")
+            return self.user_levels
+        except Exception as e:
+            print(f"Error loading user levels: {e}")
+            return None
 
     def calculate_error_rates(self):
         # 각 조합별 평균 에러율 계산
@@ -30,3 +41,32 @@ class DataAnalyzer:
         if self.error_rates is None:
             self.calculate_error_rates()
         return self.error_rates['combination'].tolist()
+    
+    def analyze_level_performance(self):
+        # 사용자 레벨 정보 병합
+        merged_data = pd.merge(
+            self.data,
+            self.user_levels,  # 사용자 레벨 데이터
+            left_on='member_id',
+            right_on='id'
+        )
+        
+        # 레벨별, 게임 조합별 평균 error rate 계산
+        level_performance = merged_data.groupby(['level', 'combination'])['error_rate'].agg(['mean', 'std']).reset_index()
+        
+        # 최적 난이도 찾기 (error rate 30-50% 기준)
+        optimal_combinations = []
+        for level in level_performance['level'].unique():
+            level_data = level_performance[level_performance['level'] == level]
+            optimal = level_data[
+                (level_data['mean'] >= 30) & 
+                (level_data['mean'] <= 50)
+            ]
+            if not optimal.empty:
+                optimal_combinations.append({
+                    'level': level,
+                    'optimal_combinations': optimal['combination'].tolist(),
+                    'error_rates': optimal['mean'].tolist()
+                })
+        
+        return level_performance, optimal_combinations
