@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 class DataAnalyzer:
     def __init__(self, data):
@@ -236,3 +237,88 @@ class DataAnalyzer:
                 })
         
         return level_performance, optimal_combinations, None
+    
+    def perform_anova_test(self, data):
+        """
+        모든 조합에 대한 Two-way ANOVA (3x4 factorial design)
+        """
+        print("\nTwo-way ANOVA Test Results for All Combinations")
+        print("=" * 60)
+        
+        # 보드 크기와 게임 타입 분리
+        data['board_size'] = data['combination'].str.split().str[0]
+        data['game_type'] = data['combination'].str.split().str[1]
+        
+        # Two-way ANOVA 수행
+        from statsmodels.stats.anova import anova_lm
+        from statsmodels.formula.api import ols
+        
+        model = ols('error_rate ~ C(board_size) + C(game_type) + C(board_size):C(game_type)', 
+                    data=data).fit()
+        anova_table = anova_lm(model, typ=2)
+        
+        print("\nANOVA Results:")
+        print(anova_table)
+        
+        # 기술 통계량 출력
+        print("\nDescriptive Statistics:")
+        print("-" * 60)
+        desc_stats = data.groupby(['board_size', 'game_type'])['error_rate'].agg(['mean', 'std', 'count'])
+        print(desc_stats)
+        
+        # 시각화
+        plt.figure(figsize=(15, 10))
+        
+        # 1. Interaction plot
+        plt.subplot(2, 2, 1)
+        interaction_data = data.groupby(['board_size', 'game_type'])['error_rate'].mean().unstack()
+        
+        for column in interaction_data.columns:
+            plt.plot(interaction_data.index, interaction_data[column], 
+                    marker='o', label=column, linewidth=2, markersize=8)
+        
+        plt.title('Interaction Effect:\nBoard Size × Game Type')
+        plt.xlabel('Board Size')
+        plt.ylabel('Average Error Rate (%)')
+        plt.legend(title='Game Type')
+        plt.grid(True, alpha=0.3)
+        
+        # 2. Box plots for board size
+        plt.subplot(2, 2, 2)
+        sns.boxplot(data=data, x='board_size', y='error_rate')
+        plt.title('Error Rates by Board Size')
+        
+        # 3. Box plots for game type
+        plt.subplot(2, 2, 3)
+        sns.boxplot(data=data, x='game_type', y='error_rate')
+        plt.title('Error Rates by Game Type')
+        
+        # 4. Interaction heatmap
+        plt.subplot(2, 2, 4)
+        sns.heatmap(interaction_data, annot=True, fmt='.1f', cmap='YlOrRd')
+        plt.title('Error Rate Heatmap')
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Post-hoc analysis
+        from statsmodels.stats.multicomp import pairwise_tukeyhsd
+        
+        # Board size에 대한 post-hoc
+        if anova_table.loc['C(board_size)', 'PR(>F)'] < 0.05:
+            print("\nPost-hoc analysis for Board Size (Tukey's HSD):")
+            print(pairwise_tukeyhsd(data['error_rate'], data['board_size']))
+        
+        # Game type에 대한 post-hoc
+        if anova_table.loc['C(game_type)', 'PR(>F)'] < 0.05:
+            print("\nPost-hoc analysis for Game Type (Tukey's HSD):")
+            print(pairwise_tukeyhsd(data['error_rate'], data['game_type']))
+        
+        # Effect size 계산 (Partial Eta-squared)
+        def calculate_partial_eta_squared(aov):
+            aov['pes'] = aov['sum_sq'] / (aov['sum_sq'] + aov['sum_sq'].iloc[-1])
+            return aov
+        
+        anova_with_pes = calculate_partial_eta_squared(anova_table)
+        print("\nEffect Size (Partial Eta-squared):")
+        print(anova_with_pes['pes'])

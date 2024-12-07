@@ -46,5 +46,8 @@ def main():
     # 인터랙티브 체크박스 플롯 생성
     visualizer.create_interactive_plot()
 
+    # ANOVA 테스트 실행
+    analyzer.perform_anova_test(processed_data)
+
 if __name__ == "__main__":
     main()
