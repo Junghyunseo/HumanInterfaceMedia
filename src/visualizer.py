@@ -58,6 +58,10 @@ class Visualizer:
     def create_level_optimization_plot(self, level_performance):
         fig, ax = plt.subplots(figsize=(15, 10))
         
+        # 전체 평균 error rate 계산하여 난이도 순서 결정
+        combination_means = level_performance.groupby('combination')['mean'].mean().sort_values()
+        ordered_combinations = combination_means.index.tolist()
+        
         # 레벨별로 다른 색상 사용
         levels = sorted(level_performance['level'].unique())
         colors = plt.cm.viridis(np.linspace(0, 1, len(levels)))
@@ -65,27 +69,36 @@ class Visualizer:
         for level, color in zip(levels, colors):
             level_data = level_performance[level_performance['level'] == level]
             
+            # 정렬된 순서에 맞게 데이터 재정렬
+            level_data = level_data.set_index('combination').reindex(ordered_combinations).reset_index()
+            
             # 에러바와 함께 플롯
             ax.errorbar(level_data['combination'], 
-                       level_data['mean'],
-                       yerr=level_data['std'],
-                       fmt='o-',
-                       label=f'Level {level}',
-                       color=color,
-                       alpha=0.7)
+                    level_data['mean'],
+                    yerr=level_data['std'],
+                    fmt='o-',
+                    label=f'Level {level}',
+                    color=color,
+                    alpha=0.7)
         
         # 최적 구간 표시
         ax.axhspan(30, 50, color='green', alpha=0.1, label='Optimal Range')
         
-        plt.xticks(rotation=45)
+        plt.xticks(range(len(ordered_combinations)), ordered_combinations, rotation=45)
         plt.title('Error Rates by Level and Game Type\nOptimal Range (30-50%) highlighted')
-        plt.xlabel('Game Combinations')
+        plt.xlabel('Game Combinations (ordered by difficulty)')
         plt.ylabel('Error Rate (%)')
         plt.grid(True, alpha=0.3)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
         plt.tight_layout()
         plt.show()
+        
+        # 난이도 순서 출력
+        print("\nGame Combinations ordered by difficulty (mean error rate):")
+        print("=" * 60)
+        for comb, mean in combination_means.items():
+            print(f"{comb:<20}: {mean:.2f}%")
 
     def create_level_recommendation_plot(self, optimal_combinations):
         fig, ax = plt.subplots(figsize=(12, 8))
