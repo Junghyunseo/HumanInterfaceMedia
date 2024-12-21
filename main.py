@@ -5,7 +5,18 @@ from src.linear_regression_model import train_linear_regression, plot_regression
 from src.regression_3d import perform_3d_regression
 from src.regression_3d_polynomial import perform_3d_polynomial_regression
 from src.regression_polynomial import perform_polynomial_regression
+import pandas as pd
 import os
+
+def load_user_levels(file_path):
+    """
+    사용자 레벨 데이터를 로드하고 상, 중, 하로 분류
+    """
+    user_levels = pd.read_excel(file_path)
+    user_levels['level_group'] = user_levels['level'].apply(
+        lambda x: 'low' if x in [8, 9] else ('medium' if x in [10, 11, 12] else 'high')
+    )
+    return user_levels
 
 def main():
     # 파일 경로 설정
@@ -20,7 +31,7 @@ def main():
     # 데이터 로드 및 전처리
     loader = DataLoader(game_data_path)
     data = loader.load_data()
-    processed_data = loader.preprocess_data()  # combination_means는 제거
+    processed_data = loader.preprocess_data()
 
     # 데이터 분석
     analyzer = DataAnalyzer(processed_data)
@@ -61,7 +72,7 @@ def main():
     model, encoder = train_linear_regression(processed_data)  # Train and return the model and encoder
     plot_regression_results(processed_data, model, encoder)  # Visualize results
 
-    # 3D 회귀 분석 실행
+    # 3D 선형 회귀 분석 실행
     print("\nPerforming 3D Regression Analysis...")
     perform_3d_regression(processed_data)
 
@@ -74,6 +85,22 @@ def main():
     print("\nPerforming 3D Polynomial Regression Analysis...")
     degree = 3  # 다항식 차수 설정
     perform_3d_polynomial_regression(processed_data, degree)
+
+    # 사용자 레벨 데이터 로드 및 병합
+    user_levels = load_user_levels(user_levels_path)
+    merged_data = pd.merge(processed_data, user_levels, left_on='member_id', right_on='id')
+
+    # 상, 중, 하 그룹별 3D Linear Regression 분석 추가
+    for group in ['low', 'medium', 'high']:
+        group_data = merged_data[merged_data['level_group'] == group]
+        print(f"\nPerforming 3D Linear Regression for {group.capitalize()} Level Group...")
+        perform_3d_regression(group_data)  # 그룹별 선형 회귀 분석
+
+    # 상, 중, 하 그룹별 3D Polynomial Regression 분석
+    for group in ['low', 'medium', 'high']:
+        group_data = merged_data[merged_data['level_group'] == group]
+        print(f"\nPerforming 3D Polynomial Regression for {group.capitalize()} Level Group...")
+        perform_3d_polynomial_regression(group_data, degree=3)
 
 if __name__ == "__main__":
     main()

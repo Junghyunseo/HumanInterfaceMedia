@@ -32,6 +32,7 @@ def perform_3d_regression(data):
     # 6. 모델 평가
     mse = mean_squared_error(y, y_pred)
     r2 = r2_score(y, y_pred)
+    print("3D Linear Regression")
     print(f"Mean Squared Error (MSE): {mse:.2f}")
     print(f"R-squared (R²): {r2:.2f}")
 
@@ -42,18 +43,23 @@ def perform_3d_regression(data):
     # 실제 데이터 산점도
     ax.scatter(X['board_size'], X['card_type'], y, color='blue', label='Actual', alpha=0.6)
 
-    # 회귀면 생성
-    X1, X2 = np.meshgrid(np.linspace(X['board_size'].min(), X['board_size'].max(), 10),
-                         np.linspace(X['card_type'].min(), X['card_type'].max(), 10))
-    Z = model.intercept_ + model.coef_[0] * X1 + model.coef_[1] * X2
-    ax.plot_surface(X1, X2, Z, color='red', alpha=0.3, label='Regression Plane')
+    # 예측값 산점도 (빨간색)
+    ax.scatter(X['board_size'], X['card_type'], y_pred, color='red', label='Predicted', alpha=0.6)
 
-    # 축 레이블 설정
+    # 회귀면 생성
+    X1, X2 = np.meshgrid(
+        np.linspace(X['board_size'].min(), X['board_size'].max(), 10),
+        np.linspace(X['card_type'].min(), X['card_type'].max(), 10)
+    )
+    Z = model.intercept_ + model.coef_[0] * X1 + model.coef_[1] * X2
+    ax.plot_surface(X1, X2, Z, color='green', alpha=0.3, label='Regression Plane')
+
+    # 축 설정 및 그래프 제목
     ax.set_xlabel('Board Size')
     ax.set_ylabel('Card Type')
     ax.set_zlabel('Error Rate')
-    ax.set_title('3D Regression Analysis (Sorted by Error Rate)')
-    plt.legend()
+    ax.set_title("3D Linear Regression Analysis")
+    ax.legend()
     plt.show()
 
     return model
