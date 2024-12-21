@@ -21,24 +21,40 @@ class DataAnalyzer:
             return None
 
     def calculate_error_rates(self):
-        # 각 조합별 평균 에러율 계산
-        error_rates = []
+    # 모든 조합에 대해 평균 에러율 계산
         combinations = self.data['combination'].unique()
-        
+        error_rates = []
+
         for comb in combinations:
             mask = self.data['combination'] == comb
             avg_error = self.data[mask]['error_rate'].mean()
             std_error = self.data[mask]['error_rate'].std()
-            
+
+            # 평균 에러율이 0이어도 유효한 데이터로 처리
+            if avg_error == 0 and std_error == 0:
+                std_error = 0  # 표준 편차는 0으로 설정
+
             error_rates.append({
                 'combination': comb,
                 'avg_error': avg_error,
                 'std_error': std_error
             })
-        
+
         self.error_rates = pd.DataFrame(error_rates)
         self.error_rates = self.error_rates.sort_values('avg_error')
+
+        # 누락된 조합 확인 및 경고 출력
+        expected_combinations = [
+            f"{size} {card_type}" for size in ['3x3', '4x4', '5x5']
+            for card_type in ['NUMBER', 'ALPHABET', 'SHAPE', 'ARABIC']
+        ]
+        missing_combinations = set(expected_combinations) - set(combinations)
+        if missing_combinations:
+            print(f"경고: 데이터에서 누락된 조합: {missing_combinations}")
+
         return self.error_rates
+
+
 
     def get_difficulty_order(self):
         if self.error_rates is None:
@@ -239,65 +255,62 @@ class DataAnalyzer:
         return level_performance, optimal_combinations, None
     
     def create_combined_error_rate_plot(self, data):
+        """
+        보드 크기와 게임 유형별 에러율을 시각화하는 함수
+        """
         plt.figure(figsize=(15, 8))
-        
-        # 데이터 전처리 - 보드 크기와 게임 타입을 정확히 분리
-        data = data.copy()  # 원본 데이터 보존을 위한 복사
-        data['board_size'] = data['combination'].str.extract('(3x3|4x4|5x5)')[0]  # 정규표현식으로 추출
-        data['game_type'] = data['combination'].str.extract('(NUMBER|ALPHABET|SHAPE|ARABIC)')[0]  # 정규표현식으로 추출
-        
-        # 박스 위치 조정을 위한 설정
+
+        # 데이터 전처리 - 보드 크기와 게임 유형 분리
+        data = data.copy()
+        data['board_size'] = data['combination'].str.extract('(3x3|4x4|5x5)')[0]
+        data['game_type'] = data['combination'].str.extract('(NUMBER|ALPHABET|SHAPE|ARABIC)')[0]
+
+        # 박스 위치 설정
         positions = {
             '3x3': [-0.3, -0.1, 0.1, 0.3],
             '4x4': [0.7, 0.9, 1.1, 1.3],
             '5x5': [1.7, 1.9, 2.1, 2.3]
         }
-        
+
         colors = ['royalblue', 'crimson', 'forestgreen', 'darkorchid']
         game_types = ['NUMBER', 'ALPHABET', 'SHAPE', 'ARABIC']
-        
-        # 각 게임 타입별로 박스플롯 그리기
+
+        # 박스플롯 생성
         for i, game_type in enumerate(game_types):
             for j, size in enumerate(['3x3', '4x4', '5x5']):
                 subset = data[(data['game_type'] == game_type) & (data['board_size'] == size)]
                 if not subset.empty:
-                    box = plt.boxplot(subset['error_rate'], 
-                                    positions=[positions[size][i]], 
-                                    widths=0.15,
-                                    patch_artist=True,
-                                    boxprops=dict(facecolor=colors[i], alpha=0.6),
-                                    medianprops=dict(color='black'),
-                                    flierprops=dict(marker='o', markerfacecolor=colors[i]),
-                                    showfliers=True)
-        
-        # 그래프 스타일링
+                    plt.boxplot(subset['error_rate'],
+                                positions=[positions[size][i]],
+                                widths=0.15,
+                                patch_artist=True,
+                                boxprops=dict(facecolor=colors[i], alpha=0.6),
+                                medianprops=dict(color='black'),
+                                flierprops=dict(marker='o', markerfacecolor=colors[i]),
+                                showfliers=True)
+
+        # 그래프 스타일
         plt.title('Error Rates by Board Size and Game Type', fontsize=14, pad=20)
         plt.xlabel('Board Size', fontsize=12)
         plt.ylabel('Error Rate (%)', fontsize=12)
-        
-        # x축 설정
         plt.xticks([0, 1, 2], ['3x3', '4x4', '5x5'])
-        
-        # y축 범위 설정
         plt.ylim(-5, 100)
-        
-        # 격자 추가
         plt.grid(True, axis='y', alpha=0.3, linestyle='--')
-        
+
         # 범례 추가
-        legend_elements = [plt.Rectangle((0,0),1,1, facecolor=colors[i], alpha=0.6) 
-                        for i in range(len(game_types))]
-        plt.legend(legend_elements, game_types, 
-                title='Game Type', 
-                title_fontsize=12, 
-                fontsize=10,
-                bbox_to_anchor=(1.05, 1), 
-                loc='upper left')
-        
-        # 평균값 출력
+        legend_elements = [plt.Rectangle((0, 0), 1, 1, facecolor=colors[i], alpha=0.6)
+                           for i in range(len(game_types))]
+        plt.legend(legend_elements, game_types,
+                   title='Game Type',
+                   title_fontsize=12,
+                   fontsize=10,
+                   bbox_to_anchor=(1.05, 1),
+                   loc='upper left')
+
+        # 평균 및 표준편차 출력
         means = data.groupby(['board_size', 'game_type'])['error_rate'].mean()
         std = data.groupby(['board_size', 'game_type'])['error_rate'].std()
-        
+
         print("\nMean Error Rates (%) ± Standard Deviation:")
         print("=" * 70)
         print(f"{'Board Size':<10} {'Game Type':<10} {'Mean':>8} {'Std':>6}")
@@ -308,7 +321,7 @@ class DataAnalyzer:
                     mean_val = means[size, game_type]
                     std_val = std[size, game_type]
                     print(f"{size:<10} {game_type:<10} {mean_val:>8.2f} ± {std_val:>6.2f}")
-        
+
         plt.tight_layout()
         plt.show()
 

@@ -21,27 +21,26 @@ class DataLoader:
         if self.data is None:
             self.load_data()
         
-        # 데이터 복사본 생성
-        processed_data = self.data[['member_id', 'card_count', 'card_type', 'wrong_count', 'solved_time']].copy()
-        
-        # 보드 크기 변환
-        processed_data.loc[:, 'board_size'] = processed_data['card_count'].map({
+        processed_data = self.data[['member_id', 'card_count', 'card_type', 'wrong_count']].copy()
+        processed_data = processed_data.dropna()  # 누락 데이터 제거
+        processed_data = processed_data[processed_data['card_count'] > 0]
+        processed_data = processed_data[processed_data['wrong_count'] >= 0]
+
+        # 보드 크기 매핑
+        processed_data['board_size'] = processed_data['card_count'].map({
             9: '3x3',
             16: '4x4',
             25: '5x5'
         })
-        
-        # error rate 계산
-        processed_data.loc[:, 'error_rate'] = (processed_data['wrong_count'] / processed_data['card_count']) * 100
-        
-        # 조합 컬럼 생성
-        processed_data.loc[:, 'combination'] = processed_data['board_size'] + ' ' + processed_data['card_type']
-        
-        return processed_data
 
-if __name__ == "__main__":
-    loader = DataLoader("data/휴인미 game result 복사본.xlsx")
-    data = loader.load_data()
-    processed_data = loader.preprocess_data()
-    print("\nProcessed data:")
-    print(processed_data.head())
+        # 카드 타입 수동 매핑
+        card_type_mapping = {"ALPHABET": 0, "SHAPE": 1, "NUMBER": 2, "ARABIC": 3}
+        processed_data['card_type_encoded'] = processed_data['card_type'].map(card_type_mapping)
+
+        # 에러율 계산
+        processed_data['error_rate'] = (processed_data['wrong_count'] / processed_data['card_count']) * 100
+
+        # 조합 컬럼 생성
+        processed_data['combination'] = processed_data['board_size'] + ' ' + processed_data['card_type']
+
+        return processed_data
